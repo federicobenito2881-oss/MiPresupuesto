@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controlador de Presupuesto EcoVolt</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#121212',
+                        cardbg: '#1e1e1e',
+                        cardhover: '#2a2a2a'
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Custom range styling for smooth mobile touch */
+        input[type="range"] {
+            accent-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-darkbg text-gray-100 min-h-screen pb-12">
+
+    <!-- Header / Total Income Section -->
+    <header class="sticky top-0 z-50 bg-darkbg/90 backdrop-blur-md border-b border-gray-800 px-4 py-3 shadow-md">
+        <div class="max-w-md mx-auto flex flex-col gap-2">
+            <div class="flex justify-between items-center">
+                <h1 class="text-sm font-semibold text-gray-400 tracking-wide uppercase">Ingresos Mensuales</h1>
+                <span id="net-surplus-badge" class="text-xs px-2.5 py-1 rounded-full font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Excedente: $0</span>
+            </div>
+            <div class="relative flex items-center">
+                <span class="absolute left-3 text-gray-400 font-semibold">$</span>
+                <input type="number" id="total-income" value="1557000" class="w-full bg-cardbg border border-gray-700 rounded-xl pl-8 pr-4 py-2 text-lg font-bold text-white focus:outline-none focus:border-blue-500 transition-colors" oninput="app.updateIncome(this.value)">
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 pt-4 flex flex-col gap-5">
+
+        <!-- Progress Bar Segmented -->
+        <section class="bg-cardbg border border-gray-800 rounded-2xl p-4 shadow-lg">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-sm font-semibold text-gray-300">Distribución real de tus gastos</h2>
+                <span id="total-expenses-label" class="text-xs text-gray-400 font-medium">$0 total</span>
+            </div>
+            <!-- Segmented bar -->
+            <div class="w-full h-3 bg-gray-800 rounded-full overflow-hidden flex gap-0.5 mb-3" id="segmented-bar">
+                <!-- Injected via JS -->
+            </div>
+            <div class="flex flex-wrap gap-3 text-xs text-gray-400" id="legend-container">
+                <!-- Injected via JS -->
+            </div>
+        </section>
+
+        <!-- Categories Container -->
+        <div id="categories-container" class="flex flex-col gap-4">
+            <!-- Rendered dynamically -->
+        </div>
+
+        <!-- Add Expense / Custom Category Action Button -->
+        <section class="mt-2">
+            <button onclick="app.openAddModal()" class="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all transform active:scale-98">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                Agregar nuevo gasto o ítem
+            </button>
+        </section>
+
+    </main>
+
+    <!-- Modal for Adding New Expense / Category -->
+    <div id="expense-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-cardbg border border-gray-700 w-full max-w-sm rounded-3xl p-6 shadow-2xl flex flex-col gap-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-white">Nuevo Gasto o Ítem</h3>
+                <button onclick="app.closeAddModal()" class="text-gray-400 hover:text-white p-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            
+            <div class="flex flex-col gap-3">
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs text-gray-400 font-medium">Categoría</label>
+                    <select id="new-cat-select" class="bg-darkbg border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                        <option value="vivienda_prestamos">Vivienda y Préstamos UVA</option>
+                        <option value="tarjetas_pagos">Tarjetas y Cuotas Propias</option>
+                        <option value="supervivencia">Vida Cotidiana y Ocio</option>
+                        <option value="varios">Varios / Otros Gastos</option>
+                    </select>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs text-gray-400 font-medium">Nombre del gasto</label>
+                    <input type="text" id="new-item-name" placeholder="Ej. Suscripción, Impuesto extra" class="bg-darkbg border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs text-gray-400 font-medium">Monto mensual ($)</label>
+                    <input type="number" id="new-item-value" placeholder="10000" class="bg-darkbg border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-2">
+                <button onclick="app.closeAddModal()" class="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium rounded-xl text-sm transition-colors">Cancelar</button>
+                <button onclick="app.saveNewItem()" class="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl text-sm transition-colors shadow-lg">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Controller Script -->
+    <script>
+        const DEFAULT_STATE = {
+            income: 1557000,
+            categories: [
+                {
+                    key: "vivienda_prestamos",
+                    label: "Vivienda y Préstamos UVA",
+                    color: "#ea4335",
+                    open: true,
+                    fields: [
+                        { id: "hipoteca", label: "Hipotecario", value: 411014, max: 600000 },
+                        { id: "prestamo", label: "Préstamo Personal", value: 169189, max: 300000 },
+                        { id: "expensas_cochera", label: "Expensas y Cochera", value: 100000, max: 150000 },
+                        { id: "servicios", label: "Servicios (Edemsa y Claro)", value: 76000, max: 150000 }
+                    ]
+                },
+                {
+                    key: "tarjetas_pagos",
+                    label: "Tarjetas y Cuotas Propias",
+                    color: "#1a73e8",
+                    open: true,
+                    fields: [
+                        { id: "santander", label: "Tarjeta Santander", value: 251000, max: 400000 },
+                        { id: "cencopay_neto", label: "CencoPay Neto (Restando amigo)", value: 26458, max: 100000 },
+                        { id: "mp_cuotas", label: "Mercado Pago (Cuotas ML)", value: 110000, max: 200000 }
+                    ]
+                },
+                {
+                    key: "supervivencia",
+                    label: "Vida Cotidiana y Ocio",
+                    color: "#34a853",
+                    open: true,
+                    fields: [
+                        { id: "super_auto", label: "Súper y Auto (Nafta/Seguro)", value: 250000, max: 400000 },
+                        { id: "fabri_ocio", label: "Fabri, Salidas y EcoVolt", value: 163338, max: 300000 }
+                    ]
+                },
+                {
+                    key: "varios",
+                    label: "Varios / Nuevos Gastos",
+                    color: "#fbbc04",
+                    open: true,
+                    fields: []
+                }
+            ]
+        };
+
+        class BudgetApp {
+            constructor() {
+                this.state = this.loadState();
+                this.render();
+            }
+
+            loadState() {
+                const saved = localStorage.getItem('ecovolt_budget_state_v2');
+                if (saved) {
+                    try { return JSON.parse(saved); } catch (e) { console.error(e); }
+                }
+                return JSON.parse(JSON.stringify(DEFAULT_STATE));
+            }
+
+            saveState() {
+                localStorage.setItem('ecovolt_budget_state_v2', JSON.stringify(this.state));
+                this.render();
+            }
+
+            updateIncome(val) {
+                this.state.income = parseFloat(val) || 0;
+                this.saveState();
+            }
+
+            updateFieldValue(catKey, fieldId, newVal) {
+                const cat = this.state.categories.find(c => c.key === catKey);
+                if (cat) {
+                    const field = cat.fields.find(f => f.id === fieldId);
+                    if (field) {
+                        field.value = parseFloat(newVal) || 0;
+                        this.saveState();
+                    }
+                }
+            }
+
+            toggleCategory(catKey) {
+                const cat = this.state.categories.find(c => c.key === catKey);
+                if (cat) {
+                    cat.open = !cat.open;
+                    this.render();
+                }
+            }
+
+            deleteField(catKey, fieldId) {
+                const cat = this.state.categories.find(c => c.key === catKey);
+                if (cat) {
+                    cat.fields = cat.fields.filter(f => f.id !== fieldId);
+                    this.saveState();
+                }
+            }
+
+            openAddModal() {
+                document.getElementById('expense-modal').classList.remove('hidden');
+                document.getElementById('expense-modal').classList.add('flex');
+            }
+
+            closeAddModal() {
+                document.getElementById('expense-modal').classList.remove('flex');
+                document.getElementById('expense-modal').classList.add('hidden');
+                document.getElementById('new-item-name').value = '';
+                document.getElementById('new-item-value').value = '';
+            }
+
+            saveNewItem() {
+                const catKey = document.getElementById('new-cat-select').value;
+                const name = document.getElementById('new-item-name').value.trim();
+                const value = parseFloat(document.getElementById('new-item-value').value) || 0;
+
+                if (!name) {
+                    alert('Por favor ingresa un nombre para el gasto.');
+                    return;
+                }
+
+                const cat = this.state.categories.find(c => c.key === catKey);
+                if (cat) {
+                    const newId = 'custom_' + Date.now();
+                    const maxDynamic = Math.max(value * 2, 50000);
+                    cat.fields.push({ id: newId, label: name, value: value, max: maxDynamic });
+                    this.closeAddModal();
+                    this.saveState();
+                }
+            }
+
+            formatMoney(amount) {
+                return '$ ' + amount.toLocaleString('es-AR');
+            }
+
+            calculateTotals() {
+                let totalExpenses = 0;
+                const catTotals = {};
+
+                this.state.categories.forEach(cat => {
+                    let catSum = 0;
+                    cat.fields.forEach(f => catSum += f.value);
+                    catTotals[cat.key] = catSum;
+                    totalExpenses += catSum;
+                });
+
+                const surplus = this.state.income - totalExpenses;
+                return { totalExpenses, catTotals, surplus };
+            }
+
+            render() {
+                // Sync income input if changed externally
+                const incomeInput = document.getElementById('total-income');
+                if (incomeInput && document.activeElement !== incomeInput) {
+                    incomeInput.value = this.state.income;
+                }
+
+                const { totalExpenses, catTotals, surplus } = this.calculateTotals();
+
+                // Surplus badge
+                const surplusBadge = document.getElementById('net-surplus-badge');
+                surplusBadge.textContent = `Excedente: ${this.formatMoney(surplus)}`;
+                if (surplus >= 0) {
+                    surplusBadge.className = "text-xs px-2.5 py-1 rounded-full font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                } else {
+                    surplusBadge.className = "text-xs px-2.5 py-1 rounded-full font-medium bg-red-500/20 text-red-400 border border-red-500/30";
+                }
+
+                document.getElementById('total-expenses-label').textContent = `${this.formatMoney(totalExpenses)} total`;
+
+                // Render Segmented Bar & Legend
+                const segBar = document.getElementById('segmented-bar');
+                const legend = document.getElementById('legend-container');
+                segBar.innerHTML = '';
+                legend.innerHTML = '';
+
+                this.state.categories.forEach(cat => {
+                    const catSum = catTotals[cat.key] || 0;
+                    const pct = totalExpenses > 0 ? (catSum / totalExpenses) * 100 : 0;
+
+                    if (pct > 0) {
+                        const seg = document.createElement('div');
+                        seg.style.width = `${pct}%`;
+                        seg.style.backgroundColor = cat.color;
+                        seg.className = 'h-full transition-all duration-300 first:rounded-l-full last:rounded-r-full';
+                        seg.title = `${cat.label}: ${pct.toFixed(1)}%`;
+                        segBar.appendChild(seg);
+                    }
+
+                    const legItem = document.createElement('div');
+                    legItem.className = 'flex items-center gap-1.5';
+                    legItem.innerHTML = `
+                        <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${cat.color}"></span>
+                        <span class="text-gray-300 font-medium">${cat.label.split(' ')[0]}:</span>
+                        <span class="text-white font-semibold">${pct.toFixed(0)}%</span>
+                    `;
+                    legend.appendChild(legItem);
+                });
+
+                // Render Categories Container
+                const container = document.getElementById('categories-container');
+                container.innerHTML = '';
+
+                this.state.categories.forEach(cat => {
+                    const catSum = catTotals[cat.key] || 0;
+                    const catPct = this.state.income > 0 ? Math.round((catSum / this.state.income) * 100) : 0;
+
+                    const card = document.createElement('div');
+                    card.className = 'bg-cardbg border border-gray-800 rounded-2xl p-4 shadow-lg transition-all';
+
+                    let fieldsHTML = '';
+                    if (cat.open) {
+                        cat.fields.forEach(f => {
+                            fieldsHTML += `
+                                <div class="flex flex-col gap-1.5 pt-3 border-t border-gray-800/60 first:border-t-0 first:pt-0">
+                                    <div class="flex justify-between items-center text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-gray-200 font-medium">${f.label}</span>
+                                            ${f.id.startsWith('custom_') ? `<button onclick="app.deleteField('${cat.key}', '${f.id}')" class="text-gray-500 hover:text-red-400 text-xs px-1">✕</button>` : ''}
+                                        </div>
+                                        <div class="relative flex items-center">
+                                            <span class="text-xs text-gray-400 mr-1">$</span>
+                                            <input type="number" value="${f.value}" class="w-28 bg-darkbg border border-gray-700 text-right px-2.5 py-1 rounded-lg text-sm font-semibold text-white focus:outline-none focus:border-blue-500" oninput="app.updateFieldValue('${cat.key}', '${f.id}', this.value)">
+                                        </div>
+                                    </div>
+                                    <input type="range" min="0" max="${f.max || f.value * 2 || 100000}" step="1000" value="${f.value}" class="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer" oninput="app.updateFieldValue('${cat.key}', '${f.id}', this.value)">
+                                </div>
+                            `;
+                        });
+                    }
+
+                    card.innerHTML = `
+                        <div class="flex justify-between items-center cursor-pointer select-none" onclick="app.toggleCategory('${cat.key}')">
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-3 h-3 rounded-full shadow-sm" style="background-color: ${cat.color}"></span>
+                                <h3 class="text-sm font-bold text-white">${cat.label}</h3>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs font-semibold px-2 py-0.5 rounded-lg bg-gray-800 text-gray-300">${catPct}%</span>
+                                <span class="text-sm font-bold text-white">${this.formatMoney(catSum)}</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400 transform transition-transform ${cat.open ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                            </div>
+                        </div>
+                        ${cat.open ? `<div class="flex flex-col gap-3.5 mt-3 pt-3">${fieldsHTML}</div>` : ''}
+                    `;
+                    container.appendChild(card);
+                });
+            }
+        }
+
+        const app = new BudgetApp();
+    </script>
+</body>
+</html>
