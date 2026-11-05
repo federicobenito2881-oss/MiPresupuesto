@@ -1,0 +1,10 @@
+JSON
+{
+  "name": "Mi Presupuesto Personal",
+  "short_name": "Presupuesto",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#1a73e8",
+  "icons": []
+}
